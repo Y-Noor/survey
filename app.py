@@ -8,62 +8,68 @@ st.set_page_config(page_title="Survey Dashboard", layout="wide")
 st.title("📊 Survey Results Dashboard")
 
 # 1. Connect to Google Sheets
-# (Make sure to set up secrets for this, see Step 3)
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Read the data (adjust 'worksheet' to your specific tab name if needed)
+# Read the data (Using the explicit spreadsheet URL approach that worked for you)
 df = conn.read(
     spreadsheet="https://docs.google.com/spreadsheets/d/1Nsodfc0cmxsohQ43jN-m2KWsPonGkZJRmC-ArC1HN5I/edit?usp=sharing",
     ttl="10m"
 )
 
-st.subheader("Raw Survey Data")
-st.dataframe(df.head())
+# --- Clean data slightly (drop completely empty rows/columns if any) ---
+df = df.dropna(how='all')
 
-# --- Basic Data Cleansing / Validation Example ---
-# Ensure your column names match your sheet exactly. 
-# Let's assume you have columns: 'Age Group', 'Satisfaction', 'Feature Request'
+st.subheader("📋 Respondent Data Overview")
+st.dataframe(df.head(), use_container_width=True)
+st.markdown("---")
 
-# 2. Add Sidebar Filters
-st.sidebar.header("Filter Results")
-if 'Age Group' in df.columns:
-    age_filter = st.sidebar.multiselect(
-        "Select Age Group:",
-        options=df['Age Group'].unique(),
-        default=df['Age Group'].unique()
-    )
-    df_filtered = df[df['Age Group'].isin(age_filter)]
-else:
-    df_filtered = df
+st.subheader("💡 Question-by-Question Breakdown")
 
-# 3. Visualizations
-col1, col2 = st.columns(2)
+# We want a grid layout (e.g., 2 cards per row)
+# You can change this to 3 if you want smaller cards
+CARDS_PER_ROW = 2 
 
-with col1:
-    st.subheader("Satisfaction Ratings")
-    if 'Satisfaction' in df_filtered.columns:
-        # Count occurrences of each rating
-        satisfaction_counts = df_filtered['Satisfaction'].value_counts().reset_index()
-        satisfaction_counts.columns = ['Rating', 'Count']
-        
-        # Create a Bar Chart
-        fig_bar = px.bar(satisfaction_counts, x='Rating', y='Count', 
-                         color='Rating', title="Overall Satisfaction Distribution")
-        st.plotly_chart(fig_bar, use_container_width=True)
-    else:
-        st.info("Add a 'Satisfaction' column to see this chart.")
+# Loop through all columns in your Google Sheet dynamically
+columns_to_plot = df.columns
 
-with col2:
-    st.subheader("Demographics Breakdown")
-    if 'Age Group' in df_filtered.columns:
-        # Create a Pie Chart
-        fig_pie = px.pie(df_filtered, names='Age Group', title="Respondents by Age Group")
-        st.plotly_chart(fig_pie, use_container_width=True)
-    else:
-        st.info("Add an 'Age Group' column to see this chart.")
-
-# 4. Text/Open-ended Survey Responses
-st.subheader("💬 Open-ended Feedback")
-if 'Feature Request' in df_filtered.columns:
-    for i, response in enumerate(df_filtered['Feature Request'].dropna()):
-        st.markdown(f"**Respondent {i+1}:** {response}")
+for i in range(0, len(columns_to_plot), CARDS_PER_ROW):
+    # Create a row of columns based on our CARDS_PER_ROW setting
+    cols = st.columns(CARDS_PER_ROW)
+    
+    for j in range(CARDS_PER_ROW):
+        # Ensure we don't go out of bounds if there's an odd number of questions
+        if i + j < len(columns_to_plot):
+            question_name = columns_to_plot[i + j]
+            
+            # Skip ID, Timestamp, or purely unique text columns if they ruin the charts
+            if question_name.lower() in ['id', 'timestamp', 'index']:
+                continue
+                
+            # Create a visual "Card" using a bordered container
+            with cols[j]:
+                with st.container(border=True):
+                    st.markdown(f"### ❓ {question_name}")
+                    
+                    # Get value counts for the pie chart
+                    data_counts = df[question_name].value_counts().reset_index()
+                    data_counts.columns = ['Response', 'Count']
+                    
+                    if not data_counts.empty:
+                        # Generate the Pie Chart
+                        fig = px.pie(
+                            data_counts, 
+                            names='Response', 
+                            values='Count',
+                            hole=0.4, # Turns it into a sleek donut chart! Remove this line for a solid pie
+                            color_discrete_sequence=px.colors.qualitative.Pastel
+                        )
+                        
+                        # Clean up chart layout inside the card
+                        fig.update_layout(
+                            margin=dict(l=20, r=20, t=20, b=20),
+                            legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="center", x=0.5)
+                        )
+                        
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.info("No data submitted for this question yet.")
