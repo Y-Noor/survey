@@ -12,7 +12,10 @@ st.title("📊 Survey Results Dashboard")
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # Read the data (adjust 'worksheet' to your specific tab name if needed)
-df = conn.read(ttl="10m")  # Caches data for 10 minutes
+df = conn.read(
+    spreadsheet="https://docs.google.com/spreadsheets/d/1Nsodfc0cmxsohQ43jN-m2KWsPonGkZJRmC-ArC1HN5I/edit?usp=sharing",
+    ttl="10m"
+)
 
 st.subheader("Raw Survey Data")
 st.dataframe(df.head())
