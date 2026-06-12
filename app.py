@@ -24,18 +24,29 @@ ignore_cols = ['id', 'timestamp', 'index']
 valid_cols = [col for col in df.columns if col.lower() not in ignore_cols]
 
 # ------------------------------------------------------------------
-# GENERATE GLOBAL COLOR MAP FOR CONSISTENT TRACKING
+# GENERATE AN EXPANDED GLOBAL COLOR MAP FOR UNIQUE TRACKING
 # ------------------------------------------------------------------
 # Get every single unique answer/name across all valid questions
 all_unique_answers = pd.unique(df[valid_cols].values.ravel('K'))
-# Drop any null/NaN values from the unique list
 all_unique_answers = [ans for ans in all_unique_answers if pd.notna(ans)]
 
-# Choose a distinct color palette (e.g., Qualitative Pastel or Set3)
-palette = px.colors.qualitative.Pastel
+# Combine multiple distinct qualitative palettes to maximize color variety
+extended_palette = (
+    px.colors.qualitative.Set3 + 
+    px.colors.qualitative.Dark2 + 
+    px.colors.qualitative.Bold + 
+    px.colors.qualitative.Pastel + 
+    px.colors.qualitative.Vivid
+)
 
-# Map each unique name to a specific color from the palette cyclically
-color_map = {name: palette[i % len(palette)] for i, name in enumerate(all_unique_answers)}
+# Strip out any accidentally duplicated color hex codes to keep options unique
+unique_palette = []
+for color in extended_palette:
+    if color not in unique_palette:
+        unique_palette.append(color)
+
+# Map each unique name to a specific color from our massive pool
+color_map = {name: unique_palette[i % len(unique_palette)] for i, name in enumerate(all_unique_answers)}
 
 # ------------------------------------------------------------------
 # TOTAL REPRESENTATION COUNT ACROSS ALL QUESTIONS
@@ -43,31 +54,26 @@ color_map = {name: palette[i % len(palette)] for i, name in enumerate(all_unique
 st.subheader("Total Responses Across All Questions")
 
 if valid_cols:
-    # Melt the dataframe to combine all answers from all columns into one single column
     melted_df = pd.melt(df, value_vars=valid_cols, value_name='Answer')
     
-    # Drop missing values and count occurrences of each unique answer/name
     total_counts = melted_df['Answer'].dropna().value_counts().reset_index()
     total_counts.columns = ['Answer', 'Total Count']
-    
-    # Sort so the highest represented name is at the top of the chart
     total_counts = total_counts.sort_values(by='Total Count', ascending=True)
     
     if not total_counts.empty:
-        # Create a horizontal bar chart with fixed color mapping
         fig_total = px.bar(
             total_counts, 
             x='Total Count', 
             y='Answer', 
             orientation='h',
             title="Total Frequency of Each Answer Across Entire Survey",
-            color='Answer',             # Color by the answer name
-            color_discrete_map=color_map # Force the global color rules
+            color='Answer',             
+            color_discrete_map=color_map 
         )
         
         fig_total.update_layout(
             margin=dict(l=20, r=20, t=40, b=20),
-            showlegend=False,            # Hide legend here since the Y-axis already has names
+            showlegend=False,            
             height=min(400 + (len(total_counts) * 20), 800)
         )
         
@@ -105,14 +111,13 @@ for i in range(0, len(columns_to_plot), CARDS_PER_ROW):
                     data_counts.columns = ['Response', 'Count']
                     
                     if not data_counts.empty:
-                        # Create a pie/donut chart with fixed color mapping
                         fig = px.pie(
                             data_counts, 
                             names='Response', 
                             values='Count',
                             hole=0.4,
-                            color='Response',           # Color by response value
-                            color_discrete_map=color_map # Force the global color rules
+                            color='Response',           
+                            color_discrete_map=color_map 
                         )
                         
                         fig.update_layout(
