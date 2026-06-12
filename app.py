@@ -19,14 +19,28 @@ df = conn.read(
 # Clean data slightly (drop completely empty rows/columns if any)
 df = df.dropna(how='all')
 
+# Identify columns to ignore for calculations
+ignore_cols = ['id', 'timestamp', 'index']
+valid_cols = [col for col in df.columns if col.lower() not in ignore_cols]
+
+# ------------------------------------------------------------------
+# GENERATE GLOBAL COLOR MAP FOR CONSISTENT TRACKING
+# ------------------------------------------------------------------
+# Get every single unique answer/name across all valid questions
+all_unique_answers = pd.unique(df[valid_cols].values.ravel('K'))
+# Drop any null/NaN values from the unique list
+all_unique_answers = [ans for ans in all_unique_answers if pd.notna(ans)]
+
+# Choose a distinct color palette (e.g., Qualitative Pastel or Set3)
+palette = px.colors.qualitative.Pastel
+
+# Map each unique name to a specific color from the palette cyclically
+color_map = {name: palette[i % len(palette)] for i, name in enumerate(all_unique_answers)}
+
 # ------------------------------------------------------------------
 # TOTAL REPRESENTATION COUNT ACROSS ALL QUESTIONS
 # ------------------------------------------------------------------
 st.subheader("Total Responses Across All Questions")
-
-# Identify columns to ignore for the global count (like timestamps or IDs)
-ignore_cols = ['id', 'timestamp', 'index']
-valid_cols = [col for col in df.columns if col.lower() not in ignore_cols]
 
 if valid_cols:
     # Melt the dataframe to combine all answers from all columns into one single column
@@ -40,20 +54,21 @@ if valid_cols:
     total_counts = total_counts.sort_values(by='Total Count', ascending=True)
     
     if not total_counts.empty:
-        # Create a horizontal bar chart
+        # Create a horizontal bar chart with fixed color mapping
         fig_total = px.bar(
             total_counts, 
             x='Total Count', 
             y='Answer', 
             orientation='h',
             title="Total Frequency of Each Answer Across Entire Survey",
-            color='Total Count',
-            color_continuous_scale=px.colors.sequential.Blues
+            color='Answer',             # Color by the answer name
+            color_discrete_map=color_map # Force the global color rules
         )
         
         fig_total.update_layout(
             margin=dict(l=20, r=20, t=40, b=20),
-            height=min(400 + (len(total_counts) * 20), 800) # Dynamic height based on number of names
+            showlegend=False,            # Hide legend here since the Y-axis already has names
+            height=min(400 + (len(total_counts) * 20), 800)
         )
         
         st.plotly_chart(fig_total, use_container_width=True)
@@ -90,12 +105,14 @@ for i in range(0, len(columns_to_plot), CARDS_PER_ROW):
                     data_counts.columns = ['Response', 'Count']
                     
                     if not data_counts.empty:
+                        # Create a pie/donut chart with fixed color mapping
                         fig = px.pie(
                             data_counts, 
                             names='Response', 
                             values='Count',
                             hole=0.4,
-                            color_discrete_sequence=px.colors.qualitative.Pastel
+                            color='Response',           # Color by response value
+                            color_discrete_map=color_map # Force the global color rules
                         )
                         
                         fig.update_layout(
