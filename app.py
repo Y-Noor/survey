@@ -12,20 +12,15 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 # Read the data
 df = conn.read(
-    spreadsheet="https://docs.google.com/spreadsheets/d/1Nsodfc0cmxsohQ43jN-m2KWsPonGkZJRmC-ArC1HN5I/edit?usp=sharing",
+    spreadsheet="https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID/edit?usp=sharing",
     ttl="10m"
 )
 
 # Clean data slightly (drop completely empty rows/columns if any)
 df = df.dropna(how='all')
 
-# Display Data Overview
-st.subheader("Respondent Data Overview")
-st.dataframe(df.head(), use_container_width=True)
-st.markdown("---")
-
 # ------------------------------------------------------------------
-# NEW SECTION: Total Representation Count Across All Questions
+# TOTAL REPRESENTATION COUNT ACROSS ALL QUESTIONS
 # ------------------------------------------------------------------
 st.subheader("Total Responses Across All Questions")
 
@@ -45,7 +40,7 @@ if valid_cols:
     total_counts = total_counts.sort_values(by='Total Count', ascending=True)
     
     if not total_counts.empty:
-        # Create a horizontal bar chart (clean and easy to read for names)
+        # Create a horizontal bar chart
         fig_total = px.bar(
             total_counts, 
             x='Total Count', 
